@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button, Table, Tag, Popconfirm, message, TableColumnsType, Card, Row, Col } from "antd";
 import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Report = {
   id: number;
@@ -183,7 +183,6 @@ const DashboardAdmin = () => {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="p-6 bg-white shadow-lg rounded-lg w-full max-w-4xl my-4">
 
-        {/* Panel Verifikasi Laporan Section */}
         <Card title="Panel Verifikasi Laporan" bordered={false}>
           <Table
             rowKey="id"
@@ -194,7 +193,6 @@ const DashboardAdmin = () => {
           />
         </Card>
 
-        {/* Dashboard Monitoring Section */}
         <Card title="Dashboard Monitoring" bordered={false} className="mt-6">
           <Row gutter={16}>
             <Col span={12}>
