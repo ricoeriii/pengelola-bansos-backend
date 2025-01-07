@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Program {
+  id   Int    @id @default(autoincrement())
+  name String
+  reports Report[]
+}
+
+model Report {
+  id            Int      @id @default(autoincrement())
+  programId     Int
+  program       Program  @relation(fields: [programId], references: [id])
+  recipientCount Int
+  region        String
+  distributionDate DateTime
+  proof         String
+  note          String?
+  status        String   @default("Pending")
+}

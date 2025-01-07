@@ -1,114 +1,234 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+import { useState, useEffect } from "react";
+import { Button, Table, Tag, Popconfirm, message, TableColumnsType, Card, Row, Col } from "antd";
+import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+type Report = {
+  id: number;
+  program: { name: string };
+  recipientCount: number;
+  distributionDate: string;
+  region: string;
+  proof: string;
+  status: string;
+};
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const DashboardAdmin = () => {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [statistics, setStatistics] = useState({
+    totalReports: 0,
+    recipientPerProgram: {} as { [key: string]: number },
+    distributionPerRegion: {} as { [key: string]: number },
+  });
 
-export default function Home() {
-  return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  useEffect(() => {
+    async function fetchReports() {
+      'use server';
+      try {
+        const response = await fetch("/api/reports");
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setReports(data);
+          calculateStatistics(data);
+        } else {
+          console.error("Data laporan tidak valid:", data);
+          message.error("Gagal memuat data laporan.");
+        }
+      } catch (error) {
+        console.error("Kesalahan saat mengambil laporan:", error);
+        message.error("Gagal memuat data laporan.");
+      }
+    }
+    fetchReports();
+  }, []);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
+  const calculateStatistics = (data: Report[]) => {
+    let totalReports = 0;
+    const recipientPerProgram: { [key: string]: number } = {};
+    const distributionPerRegion: { [key: string]: number } = {};
+
+    data.forEach((report) => {
+      totalReports++;
+      recipientPerProgram[report.program.name] = (recipientPerProgram[report.program.name] || 0) + report.recipientCount;
+      distributionPerRegion[report.region] = (distributionPerRegion[report.region] || 0) + report.recipientCount;
+    });
+
+    setStatistics({
+      totalReports,
+      recipientPerProgram,
+      distributionPerRegion,
+    });
+  };
+
+  const handleApproval = async (id: number, status: string, reason = "") => {
+    try {
+      const response = await fetch(`/api/reports/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status, note: reason }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Gagal memperbarui laporan.");
+      }
+
+      setReports((prevReports) =>
+        prevReports.map((report) =>
+          report.id === id ? { ...report, status } : report
+        )
+      );
+
+      message.success(`Laporan ${status === "Disetujui" ? "disetujui" : "ditolak"}`);
+    } catch (error) {
+      console.error("Kesalahan saat memperbarui laporan:", error);
+      message.error(`Terjadi kesalahan: ${error instanceof Error ? error.message : "Tidak diketahui"}`);
+    }
+  };
+
+  const columns: TableColumnsType<Report> = [
+    {
+      title: "Nama Program",
+      dataIndex: "program",
+      align: "center",
+      render: (program: { name: string } | undefined) => program?.name || "Tidak tersedia",
+    },
+    {
+      title: "Wilayah",
+      align: "center",
+      dataIndex: "region",
+    },
+    {
+      title: "Jumlah Penerima",
+      align: "center",
+      dataIndex: "recipientCount",
+    },
+    {
+      title: "Tanggal Penyaluran",
+      align: "center",
+      dataIndex: "distributionDate",
+      render: (date: string | undefined) =>
+        date ? new Date(date).toLocaleDateString() : "Tidak tersedia",
+    },
+    {
+      title: "Bukti",
+      align: "center",
+      dataIndex: "proof",
+      render: (proof: string | undefined) =>
+        proof ? (
+          <a href={proof} target="_blank" rel="noopener noreferrer" className="text-blue-500">
+            Download
           </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        ) : (
+          "Tidak tersedia"
+        ),
+    },
+    {
+      title: "Status",
+      align: "center",
+      dataIndex: "status",
+      render: (status: string | undefined) => {
+        let color = "default";
+        if (status === "Disetujui") color = "success";
+        if (status === "Ditolak") color = "error";
+        return <Tag color={color}>{status || "Tidak tersedia"}</Tag>;
+      },
+    },
+    {
+      title: "Aksi",
+      align: "center",
+      dataIndex: "action",
+      render: (_: unknown, record: Report) => (
+        <div className="flex space-x-2">
+          {record.status === "Pending" && (
+            <>
+              <Popconfirm
+                title="Apakah Anda yakin ingin menyetujui laporan ini?"
+                onConfirm={() => handleApproval(record.id, "Disetujui")}
+                okText="Ya"
+                cancelText="Tidak"
+              >
+                <Button type="primary" icon={<CheckCircleOutlined />} size="small">
+                  Setujui
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Alasan penolakan?"
+                onConfirm={() => {
+                  const reason = prompt("Alasan penolakan:");
+                  if (reason) handleApproval(record.id, "Ditolak", reason);
+                }}
+                okText="Ya"
+                cancelText="Tidak"
+              >
+                <Button type="primary" danger icon={<CloseCircleOutlined />} size="small">
+                  Tolak
+                </Button>
+              </Popconfirm>
+            </>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      ),
+    },
+  ];
+
+  const regionChartData = Object.entries(statistics.distributionPerRegion).map(([region, count]) => ({
+    region,
+    count,
+  }));
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="p-6 bg-white shadow-lg rounded-lg w-full max-w-4xl my-4">
+
+        {/* Panel Verifikasi Laporan Section */}
+        <Card title="Panel Verifikasi Laporan" bordered={false}>
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={reports}
+            pagination={false}
+            bordered
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </Card>
+
+        {/* Dashboard Monitoring Section */}
+        <Card title="Dashboard Monitoring" bordered={false} className="mt-6">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Card title="Total Laporan" bordered={false}>
+                <p>{statistics.totalReports}</p>
+              </Card>
+            </Col>
+            <Col span={12}>
+              <Card title="Penerima per Program" bordered={false}>
+                {Object.entries(statistics.recipientPerProgram).map(([program, count]) => (
+                  <p key={program}>
+                    {program}: {count} Penerima
+                  </p>
+                ))}
+              </Card>
+            </Col>
+            <Col span={24} className="mt-4">
+              <Card title="Penyaluran per Wilayah" bordered={false}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={regionChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="region" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#82ca9d" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+          </Row>
+        </Card>
+      </div>
     </div>
   );
-}
+};
+
+export default DashboardAdmin;
